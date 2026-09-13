@@ -13,6 +13,7 @@ cloud_admin: "rule:admin_required"
 admin_or_owner: "rule:admin_required or rule:owner"
 identity:list_user_projects: "rule:owner or rule:admin_required"
 identity:delete_trust: "rule:admin_required or user_id:%(target.trust.trustor_user_id)s"
+identity:create_trust: "user_id:%(trust.trustor_user_id)s"
 EOF
 
 # Step 2: Zip it (charm requires zip format)
