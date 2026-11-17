@@ -67,7 +67,7 @@ openstack role assignment list --role admin --names | head -20
 
 ## Phase 2 — Juju Config Propagation
 
-> A single command that automatically re-templates `[keystone_authtoken]` (inside x/x.conf) with `service_token_roles = admin` on every service connected via the `identity-service` relation.
+> A single command that automatically re-templates `[keystone_authtoken]` (in each service's `<service>.conf`) with `service_token_roles = admin` on every service connected via the `identity-service` relation.
 
 **Covered automatically:** nova-cloud-controller, neutron-api, glance, placement, cinder, ceph-radosgw, gnocchi, manila, heat, openstack-dashboard
 
@@ -88,22 +88,30 @@ watch -n5 juju status
 ## Phase 3 — Keystone Policy Overrides (Permanent)
 
 > Uses Juju's native `use-policyd-override` mechanism. Survives every future charm hook run and upgrade. Replaces any manual edits to `/etc/keystone/policy.json`.
-changed policies:
-### Fixes Admin → admin role rename. Redundant system_scope clause removed.
+
+Changed policies and why:
+
+```yaml
+# Fixes the Admin → admin role rename. Redundant system_scope clause removed.
 admin_required: "role:admin"
 
-### Removes hardcoded domain/project UUIDs from old rule, works with system-scoped tokens.
+# Removes hardcoded domain/project UUIDs from the old rule; works with system-scoped tokens.
+# Scope: this makes the `admin` role a cloud-wide administrator regardless of domain —
+# fine for a single-operator cloud, review it on a multi-domain cloud with domain admins.
 cloud_admin: "rule:admin_required"
 
-### Removes domain_id constraint that broke system-scoped token admin operations.
+# Removes the domain_id constraint that broke system-scoped admin operations.
 admin_or_owner: "rule:admin_required or rule:owner"
 
-### Required for Skyline login — allows admin to list projects for any user.
-### Redundant rule:cloud_admin clause removed (equals admin_required anyway).
+# Required for Skyline login — lets an admin list projects for any user.
 identity:list_user_projects: "rule:owner or rule:admin_required"
 
-### Security fix — was empty string in both old and new (anyone could delete trusts).
+# Security fix — the old rule was an empty string (anyone could delete trusts).
 identity:delete_trust: "rule:admin_required or user_id:%(target.trust.trustor_user_id)s"
+
+# Lets a user create trusts for themselves (needed by Magnum/Heat).
+identity:create_trust: "user_id:%(trust.trustor_user_id)s"
+```
 
 ```bash
 # Step 1: Create the overrides file
@@ -113,6 +121,7 @@ cloud_admin: "rule:admin_required"
 admin_or_owner: "rule:admin_required or rule:owner"
 identity:list_user_projects: "rule:owner or rule:admin_required"
 identity:delete_trust: "rule:admin_required or user_id:%(target.trust.trustor_user_id)s"
+identity:create_trust: "user_id:%(trust.trustor_user_id)s"
 EOF
 
 # Step 2: Zip it (charm requires zip format)
@@ -259,7 +268,7 @@ juju config keystone keystone-admin-role
 | 2 | Propagate to nova, neutron, glance, cinder, gnocchi, manila, heat, placement, radosgw, horizon | `juju config keystone keystone-admin-role=admin` | ✅ Automatic |
 | 2 | Wait for settlement | `watch juju status` | ❌ Manual check |
 | 3 | Keystone policy fixes | `use-policyd-override` | ✅ Permanent |
-| 4 | Neutron restart | `juju run --unit neutron-api/0 ...` | ❌ Manual |
+| 4 | Neutron restart | `juju ssh neutron-api/0 "sudo systemctl restart neutron-server"` | ❌ Manual |
 | 5a | Verify identity-service units | grep script | ❌ Verify |
 | 5b | Verify manila-ganesha, ceilometer | grep + sed if needed | ⚠️ Verify first |
 | 5c | API end-to-end test | curl + openstack CLI | ❌ Verify |
@@ -302,8 +311,10 @@ juju config keystone keystone-admin-role
 If anything breaks during the process:
 
 ```bash
-# Re-rename back (no immutable flag needed since we already removed it)
-openstack role set --name Admin $(openstack role show admin -f value -c id)
+# Re-rename back (if 01-renameAdminRole.sh re-set the immutable flag, clear it first)
+ROLE_ID=$(openstack role show admin -f value -c id)
+openstack role set --no-immutable "$ROLE_ID"
+openstack role set --name Admin "$ROLE_ID"
 
 # Revert Juju config
 juju config keystone keystone-admin-role=Admin
@@ -319,4 +330,4 @@ juju config keystone use-policyd-override=false
 
 ---
 
-*Generated from troubleshooting session — Juju+MAAS OpenStack Bobcat (2023.2), Skyline dashboard `99cloud/skyline`*
+*Tested on Juju + MAAS OpenStack Bobcat (2023.2) with Skyline 2024.2.*

@@ -17,10 +17,10 @@
 5. [Part A — Install MariaDB (in container)](#5-part-a--install-mariadb-in-container)
 6. [Part B — Install skyline-apiserver](#6-part-b--install-skyline-apiserver)
 7. [Part C — Install skyline-console](#7-part-c--install-skyline-console)
-9. [Service Management & Verification](#9-service-management--verification)
-10. [Login Page Customisation](#10-login-page-customisation)
-11. [Juju Charm Integration Notes](#11-juju-charm-integration-notes)
-12. [Troubleshooting Reference](#12-troubleshooting-reference)
+8. [Service Management & Verification](#8-service-management--verification)
+9. [Login Page Customisation](#9-login-page-customisation)
+10. [Juju Charm Integration Notes](#10-juju-charm-integration-notes)
+11. [Troubleshooting Reference](#11-troubleshooting-reference)
 
 ---
 
@@ -206,7 +206,7 @@ These steps run on your **existing OpenStack controller**, not in the LXD contai
 
 ```bash
 # Source admin credentials
-source /etc/kolla/admin-openrc.sh   # adjust path to your admin-openrc
+source ./admin-openrc.sh   # adjust path to your admin openrc file
 
 # Create skyline user — you will be prompted for a password
 openstack user create --domain admin_domain --password-prompt skyline
@@ -585,7 +585,8 @@ sed -i \
   /etc/nginx/nginx.conf
 ```
 
----
+Test and start nginx:
+
 ```bash
 nginx -t
 # Expected: nginx: configuration file /etc/nginx/nginx.conf test is successful
@@ -603,9 +604,9 @@ ss -tlnp | grep 9999
 
 ---
 
-## 9. Service Management & Verification
+## 8. Service Management & Verification
 
-### 9.1 Summary of all services
+### 8.1 Summary of all services
 
 | Service | Unit file | Port |
 |---|---|---|
@@ -613,7 +614,7 @@ ss -tlnp | grep 9999
 | Skyline APIServer | `skyline-apiserver.service` | 127.0.0.1:28000 |
 | Nginx | `nginx.service` | 0.0.0.0:9999 |
 
-### 9.2 Start and enable all services
+### 8.2 Start and enable all services
 
 ```bash
 systemctl enable --now mariadb
@@ -621,13 +622,13 @@ systemctl enable --now skyline-apiserver
 systemctl enable --now nginx
 ```
 
-### 9.3 Check all service statuses
+### 8.3 Check all service statuses
 
 ```bash
 systemctl status mariadb skyline-apiserver nginx
 ```
 
-### 9.4 View logs
+### 8.4 View logs
 
 ```bash
 # Gunicorn / APIServer logs
@@ -641,7 +642,7 @@ tail -f /var/log/nginx/skyline_access.log
 tail -f /var/log/nginx/skyline_error.log
 ```
 
-### 9.5 Access the dashboard
+### 8.5 Access the dashboard
 
 Open a browser and navigate to:
 
@@ -653,7 +654,7 @@ Log in with any valid OpenStack user credentials. The `skyline` service user its
 
 ---
 
-## 10. Login Page Customisation
+## 9. Login Page Customisation
 
 Skyline Console is a compiled React application. The compiled static assets — including images — live inside the installed Python package. Post-install customisation falls into two categories:
 
@@ -667,7 +668,7 @@ Text strings (login page title, subtitle, product name, etc.) are compiled into 
 
 ---
 
-### 10.1 Locating the installed static files
+### 9.1 Locating the installed static files
 
 ```bash
 # Activate the venv first
@@ -691,7 +692,7 @@ SKYLINE_STATIC=$(python3 -c \
 echo $SKYLINE_STATIC
 ```
 
-### 10.2 Finding login page images
+### 9.2 Finding login page images
 
 ```bash
 # List everything in the static root
@@ -714,9 +715,9 @@ The typical files you will find (filenames may include a content hash suffix):
 
 > Because the filenames include a webpack content hash (e.g. `logo.a3b4c5d6.svg`), use `find` and `grep` as shown above rather than guessing exact names. The hash changes on each build.
 
-### 10.3 Replacing the login background image
+### 9.3 Replacing the login background image
 
-1. Identify the exact filename from the output of step 10.2.
+1. Identify the exact filename from the output of step 9.2.
 2. Prepare your replacement image at the **same dimensions** as the original (check with `file <original>` or an image editor).
 3. Back up the original:
 
@@ -743,13 +744,13 @@ systemctl reload nginx
 
 6. Hard-refresh the browser (Ctrl+Shift+R) to bypass browser cache.
 
-### 10.4 Replacing the logo
+### 9.4 Replacing the logo
 
 Follow the same procedure as 10.3. SVG logos can be any vector content but must match the original filename exactly.
 
 ---
 
-### 10.5 Changing login page text (requires rebuild)
+### 9.5 Changing login page text (requires rebuild)
 
 To change text such as the product name, login title, or subtitle displayed on the login page, you must edit the source code before building.
 
@@ -818,19 +819,13 @@ After reinstalling, the static files are in a new path (because content hashes c
 /opt/skyline-venv/bin/skyline-nginx-generator -o /etc/nginx/nginx.conf
 ```
 
-Then re-apply your port customisation (section 8) since the generator overwrites your edits:
+Then re-apply the upstream backend fix from step 7.9, since the generator overwrites it:
 
 ```bash
 sed -i \
   "s|server .* fail_timeout=0;|server 127.0.0.1:28000 fail_timeout=0;|g" \
   /etc/nginx/nginx.conf
-
-# Re-apply your port change (if using the sed approach)
-sed -i 's/listen 80;/listen 9999;/g'       /etc/nginx/nginx.conf
-sed -i 's/listen 443 ssl;/listen 9999 ssl;/g' /etc/nginx/nginx.conf
 ```
-
-Or, if you are using the manual HTTP-only nginx.conf from section 8.3, update `STATIC_PATH` and rewrite the config again.
 
 Reload nginx:
 
@@ -842,7 +837,7 @@ nginx -t && systemctl reload nginx
 
 ---
 
-### 10.6 Changing skyline default login domain
+### 9.6 Changing skyline default login domain
 Note: this hardcodes the new default domain name during login, in this case admin_domain. After this change, you need to redo all the steps of installing skyline console starting at the `make package` section, same as in 10.5 Changing login page text (requires rebuild) section above.
 
 ```bash
@@ -852,11 +847,15 @@ sed -i "s/domain: tmp\[1\] || 'Default'/domain: tmp[1] || 'admin_domain'/" \
 confirm via:
 `grep "domain: tmp\[1\]" /root/skyline-console/src/pages/auth/containers/Login/index.jsx`
 
-## 11. Juju Charm Integration Notes
+## 10. Juju Charm Integration Notes
 
 This section summarises considerations for implementing the above as a Juju charm.
+These notes became the design basis for
+[Jarru01/skyline-charm](https://github.com/Jarru01/skyline-charm), which implements
+them with a few changes: an offline wheel bundle instead of an on-unit Node.js
+build, a charm-owned nginx fallback template, and a leader-gated `db_sync`.
 
-### 11.1 Python dependency management
+### 10.1 Python dependency management
 
 Use the `venv` charm library pattern. The charm should:
 
@@ -866,7 +865,7 @@ Use the `venv` charm library pattern. The charm should:
 
 Never pass `--break-system-packages` to pip in a charm.
 
-### 11.2 systemd service ExecStart
+### 10.2 systemd service ExecStart
 
 ```ini
 ExecStart=/opt/skyline-venv/bin/gunicorn \
@@ -874,7 +873,7 @@ ExecStart=/opt/skyline-venv/bin/gunicorn \
   skyline_apiserver.main:app
 ```
 
-### 11.3 Configuration templating
+### 10.3 Configuration templating
 
 Manage `/etc/skyline/skyline.yaml` as a charm-rendered Jinja2 template. Expose these as charm config options:
 
@@ -890,21 +889,21 @@ Manage `/etc/skyline/skyline.yaml` as a charm-rendered Jinja2 template. Expose t
 - `system-project-domain` (default: `admin_domain`)
 - more if needed, based on the skyline.yaml
 
-### 11.4 Node.js version
+### 10.4 Node.js version
 
 Do not hard-code `lts/gallium`. Read the `engines.node` field from `package.json` at charm install time and install the appropriate LTS. This makes the charm forward-compatible.
 
-### 11.5 nginx config management
+### 10.5 nginx config management
 
 Keep your nginx.conf as a Jinja2 template in the charm. Do **not** rely on `skyline-nginx-generator` in production — use it once to understand the structure, then maintain a charm-owned template. This avoids the generator overwriting charm-managed config on upgrades.
 
-### 11.6 Idempotency
+### 10.6 Idempotency
 
 The `make db_sync` step is safe to run multiple times (Alembic checks existing schema). Run it on every charm upgrade to ensure the schema is current.
 
 ---
 
-## 12. Troubleshooting Reference
+## 11. Troubleshooting Reference
 
 ### `systemctl status skyline-apiserver` shows failed / inactive
 
@@ -919,7 +918,7 @@ Common causes:
 
 ### nginx fails to start: `[emerg] invalid variable name`
 
-This happens when the nginx config contains dollar signs that are not properly escaped. The `skyline-nginx-generator` may produce these. Check `/etc/nginx/nginx.conf` around line 148 (as noted in the upstream bug tracker). Escape any literal `$` that should not be nginx variables, or use the manual HTTP-only config from section 8.3.
+This happens when the nginx config contains dollar signs that are not properly escaped. The `skyline-nginx-generator` may produce these. Check `/etc/nginx/nginx.conf` around line 148 (as noted in the upstream bug tracker). Escape any literal `$` that should not be nginx variables.
 
 ### `make db_sync` fails with `ModuleNotFoundError`
 

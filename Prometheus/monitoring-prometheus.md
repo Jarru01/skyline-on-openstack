@@ -381,13 +381,13 @@ Create the monitoring user in MySQL:
 Get the password (on your MAAS host):
 
 ```bash
-export MYSQL_ROOT_PW=$(juju exec --unit mysql-innodb-cluster/2 leader-get mysql.passwd)
+export MYSQL_ROOT_PW=$(juju exec --unit mysql-innodb-cluster/<primary> leader-get mysql.passwd)
 ```
 
-Create the user on the Cluster Primary (Unit 2):
+Create the user on the cluster's current R/W primary (check with `juju status mysql-innodb-cluster`):
 
 ```bash
-juju exec --unit mysql-innodb-cluster/2 "mysql -u root -p$MYSQL_ROOT_PW -e \"CREATE USER 'exporter'@'localhost' IDENTIFIED BY 'SecretPass123'; GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO 'exporter'@'localhost';\""
+juju exec --unit mysql-innodb-cluster/<primary> "mysql -u root -p$MYSQL_ROOT_PW -e \"CREATE USER 'exporter'@'localhost' IDENTIFIED BY '<exporter-password>'; GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO 'exporter'@'localhost';\""
 ```
 
 Install the exporter binary on all 3 units (0, 1, and 2):
@@ -423,22 +423,24 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
-Inside your MySQL LXD container (e.g., juju-3e312a-1-lxd-2), create a hidden configuration file:
+Inside your MySQL LXD container (`juju ssh mysql-innodb-cluster/<n>`), create a hidden configuration file:
 
 ```bash
 sudo nano /etc/.mysqld_exporter.cnf
 ```
 
-Paste the following into that file (replace SecretPass123 with the actual password you created for the exporter user):
+Paste the following into that file (use the password you created for the exporter user):
 
 ```ini
 [client]
 user=exporter
-password=SecretPass123
+password=<exporter-password>
 socket=/var/run/mysqld/mysqld.sock
 ```
 
-Start: ```bash
+Start:
+
+```bash
 sudo systemctl daemon-reload && sudo systemctl enable --now mysqld_exporter
 ```
 
@@ -452,7 +454,9 @@ sudo systemctl status mysqld_exporter
 
 On the Memcached unit (memcached/0):
 
-SSH into the unit: ```bash
+SSH into the unit:
+
+```bash
 juju ssh memcached/0
 ```
 
@@ -465,7 +469,9 @@ tar xzf memcached_exporter-0.16.0.linux-amd64.tar.gz
 sudo cp memcached_exporter-0.16.0.linux-amd64/memcached_exporter /usr/local/bin/
 ```
 
-Create the service: ```bash
+Create the service:
+
+```bash
 sudo nano /etc/systemd/system/memcached_exporter.service
 ```
 
@@ -481,7 +487,9 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
-Start: ```bash
+Start:
+
+```bash
 sudo systemctl daemon-reload && sudo systemctl enable --now memcached_exporter
 ```
 
@@ -613,7 +621,7 @@ scrape_configs:
   #                          explicitly ensures Skyline's queries match.
   - job_name: 'openstack_compute'
     static_configs:
-      - targets: ['10.11.0.21:9100']
+      - targets: ['192.0.2.21:9100']
         labels:
           instance: 'node1'
           role: 'compute'
@@ -621,7 +629,7 @@ scrape_configs:
           cluster: 'openstack'
           region: 'RegionOne'
           node: ""
-      - targets: ['10.11.0.22:9100']
+      - targets: ['192.0.2.22:9100']
         labels:
           instance: 'node2'
           role: 'compute'
@@ -633,13 +641,13 @@ scrape_configs:
   # MySQL Cluster Nodes
   - job_name: 'mysql'
     static_configs:
-      - targets: ['10.11.1.36:9104']
+      - targets: ['192.0.2.36:9104']
         labels:
           instance: 'mysql1'
-      - targets: ['10.11.1.42:9104']
+      - targets: ['192.0.2.42:9104']
         labels:
           instance: 'mysql2'
-      - targets: ['10.11.1.49:9104']
+      - targets: ['192.0.2.49:9104']
         labels:
           instance: 'mysql3'
 
@@ -647,17 +655,17 @@ scrape_configs:
   - job_name: 'rabbitmq'
     metrics_path: /metrics
     static_configs:
-      - targets: ['10.11.1.35:15692']
+      - targets: ['192.0.2.35:15692']
         labels:
           instance: 'rabbit1'
-      - targets: ['10.11.1.38:15692']
+      - targets: ['192.0.2.38:15692']
         labels:
           instance: 'rabbit2'
 
   # Memcached Cache Service
   - job_name: 'memcached'
     static_configs:
-      - targets: ['10.11.1.46:9150']
+      - targets: ['192.0.2.46:9150']
         labels:
           instance: 'memcache1'
 ```
@@ -709,6 +717,11 @@ curl http://MONITORING_VM_IP:9090/-/healthy
 ---
 
 ## Part 10 — Configure Skyline
+
+> **With [skyline-charm](https://github.com/Jarru01/skyline-charm):** skip the manual
+> edit below and set the endpoint through the charm instead —
+> `juju config skyline prometheus-endpoint="http://MONITORING_VM_IP:9090"`. The
+> charm also generates and shares a unique `secret_key` itself.
 
 ### 10.1 Locate and edit skyline.yaml
 

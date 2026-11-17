@@ -1,10 +1,17 @@
-# Skyline Dashboard Deployment Guides on OpenStack (MaaS + Juju)
+# Skyline Dashboard on OpenStack (MAAS + Juju)
 
-Guides, configuration files and notes on deploying the Skyline Dashboard on a
-private OpenStack cloud managed via **MaaS** and **Juju**.
+Guides, configuration and fixes for running the OpenStack **Skyline** dashboard
+(2024.2) on a Charmed OpenStack cloud (Bobcat / 2023.2) managed with **MAAS** and
+**Juju**: a manual source install, the Keystone/role changes Skyline needs on a
+Juju-deployed cloud, and Prometheus-fed monitoring dashboards.
 
-> Tested on a mini 2-node OpenStack cloud deployed via **MaaS + Juju** (Bobcat).
-> Skyline supports **Prometheus**-fed monitoring dashboards — installation and integration guide included.
+> **Deploying Skyline today:** use the Juju charm in
+> [Jarru01/skyline-charm](https://github.com/Jarru01/skyline-charm). The manual
+> deployment guide here documents how Skyline is built and configured and served
+> as the basis for that charm. The OpenStack-side fixes below (role rename, Keystone
+> policy override, noVNC console) are still required with the charm.
+>
+> Tested on a 2-node reference cloud deployed with MAAS + Juju.
 
 ## 📚 Documents in this repository
 
@@ -31,20 +38,22 @@ juju config nova-cloud-controller console-access-protocol="novnc"
 
 ### Issue 2: Login to dashboard available only for skyline service user
 
-When attempting to log in, the system returns a 401 Unauthorized error (specifically HTTP 403) during the `identity:list_user_projects` call. The root cause is the legacy policy.json format, which does not support system_scope. Skyline sends a request with a project-scoped token, which Keystone rejects due to a domain_id mismatch.
+When attempting to log in, the dashboard shows "401 Unauthorized"; underneath, Keystone answers the `identity:list_user_projects` call with HTTP 403. The root cause is the legacy policy.json format, which does not support system_scope. Skyline sends a request with a project-scoped token, which Keystone rejects due to a domain_id mismatch.
 
 #### Solution: Updating Access Policies
 
-The cleanest solution is to modify the policy configuration to allow any user with the Admin role to list projects for any user—standard behavior for an administrator.
-
-Open `/etc/keystone/policy.json` and update the rule:
+Allow any user with the admin role to list projects for any user — standard behaviour for an administrator:
 
 ```
 Original: "identity:list_user_projects": "rule:owner or rule:admin_and_matching_domain_id",
-New: "identity:list_user_projects": "rule:owner or rule:cloud_admin or rule:admin_required",
+New:      "identity:list_user_projects": "rule:owner or rule:admin_required",
 ```
 
-The changes take effect immediately; a restart of the Keystone service is not required. Proceed to test the login in the Skyline interface as admin@admin_domain.
+Apply it through the keystone charm's policy override rather than by editing
+`/etc/keystone/policy.json` (a manual edit is lost on the next charm render):
+[`02-overrideKeystonePolicy.sh`](OpenStack/02-overrideKeystonePolicy.sh), explained in the
+[admin role migration guide](OpenStack/admin-role-migration-guide.md) Phase 3. Then test the
+login as `admin@admin_domain`.
 
 ### Issue 3: Admin dashboards are read-only
 
@@ -64,9 +73,13 @@ The most complex issue by far was that the admin panels in the skyline dashboard
 
 * Renaming role **A**dmin -> **a**dmin (need to set `immutable` flag of Admin role to `false` beforehand)
 * Change of the keystone admin role name `juju config keystone keystone-admin-role=admin`,`juju config keystone admin-role=admin`
-* Changing role name Admin -> admin in `/etc/keystone/policy.json`
+* Changing role name Admin -> admin in the Keystone policy (via the charm's policy override)
 * Changing role name Admin -> admin in `nova.conf,neutron.conf` (should be done automatically via relation)
 * Restarting neutron service `sudo systemctl restart neutron-server.service`
+
+The full procedure is scripted in [`OpenStack/`](OpenStack/) (run `01` → `02` → `03`,
+waiting for `juju status` to settle in between) and documented step by step in the
+[admin role migration guide](OpenStack/admin-role-migration-guide.md).
 
 #### Why renaming role Admin → admin Fixed Everything
 

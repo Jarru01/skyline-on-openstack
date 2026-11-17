@@ -1,4 +1,10 @@
-. /home/test/scripts/admin-openrc.sh
+#!/usr/bin/env bash
+# Phase 2: restart neutron-server and install a Keystone policy override through
+# the keystone charm's policyd-override resource. Run after 01-renameAdminRole.sh
+# has settled.
+set -euo pipefail
+# shellcheck disable=SC1090
+. "${OPENRC:-./admin-openrc.sh}"
 
 juju ssh neutron-api/0 "sudo systemctl restart neutron-server.service"
 sleep 5
@@ -6,7 +12,11 @@ sleep 5
 juju ssh neutron-api/0 "sudo systemctl status neutron-server.service"
 # Expected: active (running)
 
-# Step 1: Create the overrides file
+# Step 1: Create the overrides file.
+# Scope note: cloud_admin -> admin_required makes the "admin" role a cloud-wide
+# administrator regardless of domain. Fine for a single-operator cloud; review it
+# before using this on a multi-domain cloud with delegated domain admins.
+# create_trust lets a user create trusts for themselves (Magnum/Heat need this).
 cat > keystone-overrides.yaml << 'EOF'
 admin_required: "role:admin"
 cloud_admin: "rule:admin_required"
@@ -36,5 +46,5 @@ juju config keystone use-policyd-override=true
 # Wait for ALL units to reach active/idle before proceeding to Phase 3
 # Do not continue until this is clean (takes a lot of time to propagate)
 juju status
-echo "*****Wait for ALL units to reach active/idle before proceeding to Phase 3 - setConsoleProtocol.sh*****"
-echo "*****If errors related to HEAT occur, refer the the documentation at docs.cc.uniza.sk for fixing them (heat internal error)*****"
+echo "***** Wait for ALL units to reach active/idle before running 03-setConsoleProtocol.sh *****"
+echo "***** If Heat reports internal errors, see https://docs.cc.uniza.sk (heat internal error) *****"

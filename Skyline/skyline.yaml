@@ -13,7 +13,7 @@ default:
   prometheus_basic_auth_user: ''
   prometheus_enable_basic_auth: false
   prometheus_endpoint: http://<prometheus_ip>:9090
-  secret_key: aCtmgbcUqYUy_HNVg5BDXCaeJgJQzHJXwqbXr0Nmb2o
+  secret_key: <unique-secret>  # python3 -c "import secrets; print(secrets.token_urlsafe(32))"
   session_name: session
   ssl_enabled: false
 openstack:
