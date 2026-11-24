@@ -39,12 +39,12 @@ openstack-exporter :9180 ──► OpenStack APIs               │
 
 | Skyline Tab | Data source | Status |
 |---|---|---|
-| Overview — CPU / RAM bars | Recording rules (node_exporter mirror) | ✅ Working |
-| Overview — Storage bar | Recording rules (node_exporter → fake Ceph) | ✅ Working |
-| Physical Nodes | node_exporter on physical hosts | ✅ Working |
-| OpenStack Services | openstack-exporter (`agent_state` metrics) + dedicated exporters | ✅ Nova + Neutron + RabbitMQ/MySQL/Memcached |
-| Storage Clusters | Real Ceph exporter | ⚠️ Empty — no Ceph in this setup |
-| Other Services (RabbitMQ/MySQL/Memcached) | Dedicated exporters (RabbitMQ/MySQL/Memcached) | ✅ Working |
+| Overview — CPU / RAM bars | Recording rules (node_exporter mirror) | Working |
+| Overview — Storage bar | Recording rules (node_exporter → fake Ceph) | Working |
+| Physical Nodes | node_exporter on physical hosts | Working |
+| OpenStack Services | openstack-exporter (`agent_state` metrics) + dedicated exporters | Nova + Neutron + RabbitMQ/MySQL/Memcached |
+| Storage Clusters | Real Ceph exporter | Empty (no Ceph in this setup) |
+| Other Services (RabbitMQ/MySQL/Memcached) | Dedicated exporters (RabbitMQ/MySQL/Memcached) | Working |
 
 > **Why the Overview bars need a special approach:** Skyline's Overview page queries for specific
 > metric names (`openstack_nova_vcpus_available`, `openstack_nova_memory_used_bytes`,

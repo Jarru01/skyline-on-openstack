@@ -13,7 +13,7 @@ Juju-deployed cloud, and Prometheus-fed monitoring dashboards.
 >
 > Tested on a 2-node reference cloud deployed with MAAS + Juju.
 
-## 📚 Documents in this repository
+## Documents in this repository
 
 | Document | Description |
 |---|---|
@@ -24,7 +24,7 @@ Juju-deployed cloud, and Prometheus-fed monitoring dashboards.
 | [Prometheus monitoring guide](Prometheus/monitoring-prometheus.md) | Prometheus-fed dashboards for Skyline |
 | [Original Keystone policy](OpenStack/policy.json.old.json) | Pre-migration `policy.json` snapshot |
 
-## 🧯 Troubleshooting
+## Troubleshooting
 
 ### Issue 1: Inaccessible instance console
 

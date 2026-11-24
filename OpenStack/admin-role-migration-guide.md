@@ -263,16 +263,16 @@ juju config keystone keystone-admin-role
 
 | Phase | What | Command/Action | Automated? |
 |-------|------|---------------|------------|
-| 1 | Remove immutable flag | `openstack role set --no-immutable` | ❌ Manual |
-| 1 | Rename Admin→admin | `openstack role set --name admin` | ❌ Manual |
-| 2 | Propagate to nova, neutron, glance, cinder, gnocchi, manila, heat, placement, radosgw, horizon | `juju config keystone keystone-admin-role=admin` | ✅ Automatic |
-| 2 | Wait for settlement | `watch juju status` | ❌ Manual check |
-| 3 | Keystone policy fixes | `use-policyd-override` | ✅ Permanent |
-| 4 | Neutron restart | `juju ssh neutron-api/0 "sudo systemctl restart neutron-server"` | ❌ Manual |
-| 5a | Verify identity-service units | grep script | ❌ Verify |
-| 5b | Verify manila-ganesha, ceilometer | grep + sed if needed | ⚠️ Verify first |
-| 5c | API end-to-end test | curl + openstack CLI | ❌ Verify |
-| 5d | Skyline UI test | Browser | ❌ Manual |
+| 1 | Remove immutable flag | `openstack role set --no-immutable` | Manual |
+| 1 | Rename Admin→admin | `openstack role set --name admin` | Manual |
+| 2 | Propagate to nova, neutron, glance, cinder, gnocchi, manila, heat, placement, radosgw, horizon | `juju config keystone keystone-admin-role=admin` | Automatic |
+| 2 | Wait for settlement | `watch juju status` | Manual check |
+| 3 | Keystone policy fixes | `use-policyd-override` | Permanent |
+| 4 | Neutron restart | `juju ssh neutron-api/0 "sudo systemctl restart neutron-server"` | Manual |
+| 5a | Verify identity-service units | grep script | Verify |
+| 5b | Verify manila-ganesha, ceilometer | grep + sed if needed | Verify first |
+| 5c | API end-to-end test | curl + openstack CLI | Verify |
+| 5d | Skyline UI test | Browser | Manual |
 
 ---
 
@@ -297,8 +297,8 @@ juju config keystone keystone-admin-role
 
 | Service | Relation Type | Risk |
 |---------|--------------|------|
-| manila-ganesha | `identity-credentials` | ⚠️ May not propagate |
-| ceilometer | `identity-credentials` + `identity-notifications` | ⚠️ May not propagate |
+| manila-ganesha | `identity-credentials` | May not propagate |
+| ceilometer | `identity-credentials` + `identity-notifications` | May not propagate |
 
 ### Not affected (no Keystone relation)
 
